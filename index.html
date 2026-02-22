@@ -2,23 +2,24 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Voice Gemini App</title>
+<title>Gemini Voice PRO</title>
 <style>
 body { font-family: Arial; background:#111; color:white; padding:20px; }
 textarea { width:100%; height:120px; font-size:16px; padding:10px; border-radius:8px; border:none; resize:none; }
 button { margin-top:10px; padding:10px 20px; border-radius:8px; border:none; cursor:pointer; font-size:16px; margin-right:10px; }
 #micBtn { background:#ff4d4d; color:white; }
 #sendBtn { background:#4CAF50; color:white; }
-#wave { display:none; margin-top:15px; }
-.bar { display:inline-block; width:4px; height:10px; margin:2px; background:#00ffcc; animation:wave 1s infinite ease-in-out; }
-@keyframes wave { 0%{height:10px;} 50%{height:40px;} 100%{height:10px;} }
+#wave { display:flex; margin-top:15px; height:40px; align-items:flex-end; gap:2px; }
+.bar { width:6px; background:#00ffcc; animation:wave 0.5s infinite ease-in-out; }
+@keyframes wave { 0%,100% { height:10px; } 50% { height:40px; } }
 #status { margin-top:10px; color:#aaa; }
 #response { margin-top:20px; background:#222; padding:15px; border-radius:8px; white-space:pre-wrap; }
 </style>
 </head>
 <body>
 
-<h2>🎤 Gemini Voice App</h2>
+<h2>🎤 Gemini Voice PRO</h2>
+
 <textarea id="prompt" placeholder="Habla o escribe aquí..."></textarea>
 <br>
 <button id="micBtn">🎤 Activar voz</button>
@@ -33,6 +34,7 @@ button { margin-top:10px; padding:10px 20px; border-radius:8px; border:none; cur
 
 <script>
 let recognition, isRecording = false;
+const bars = document.querySelectorAll(".bar");
 
 // Inicializar reconocimiento de voz
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -46,8 +48,9 @@ else {
 
   recognition.onstart = () => {
     isRecording = true;
-    document.getElementById("wave").style.display = "block";
+    document.getElementById("wave").style.display = "flex";
     document.getElementById("status").innerText = "Escuchando...";
+    animateWave();
   };
 
   recognition.onresult = (event) => {
@@ -69,6 +72,16 @@ else {
   };
 }
 
+// Animación de ondas
+function animateWave() {
+  if (!isRecording) return;
+  bars.forEach(bar => {
+    const h = 10 + Math.random() * 30;
+    bar.style.height = h + "px";
+  });
+  requestAnimationFrame(animateWave);
+}
+
 // Botón micrófono
 document.getElementById("micBtn").addEventListener("click", () => {
   if (!isRecording) recognition.start(); else recognition.stop();
@@ -82,7 +95,7 @@ document.getElementById("sendBtn").addEventListener("click", () => {
   document.getElementById("status").innerText = "Gemini pensando...";
   document.getElementById("response").innerText = "";
 
-  const url = 'TU_URL_EXEC_DE_APPS_SCRIPT' + '?prompt=' + encodeURIComponent(prompt);
+  const url = 'https://script.google.com/macros/s/AKfycbzy7fZfx71C06Lo759ScFmyXiUAARBqjfNV8hSJBhu3FvdIKdlrBt61OhimiTr_LB3ylQ/exec?prompt=' + encodeURIComponent(prompt);
 
   fetch(url)
     .then(r => r.text())
