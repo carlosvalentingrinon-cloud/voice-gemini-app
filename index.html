@@ -26,100 +26,91 @@
 <button id="sendBtn">Enviar a Gemini</button>
 
 <div id="wave">
-  <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+  <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+  <div class="bar"></div><div class="bar"></div>
 </div>
+
 <div id="status"></div>
 <div id="response"></div>
 
 <script>
-let mediaRecorder;
-let audioChunks = [];
+let recognition;
 let isRecording = false;
 
-// Función para grabar audio
-async function startRecording() {
-  const status = document.getElementById("status");
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    audioChunks = [];
-    mediaRecorder = new MediaRecorder(stream);
+// Inicializamos SpeechRecognition
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    mediaRecorder.onstart = () => {
-      isRecording = true;
-      document.getElementById("wave").style.display = "block";
-      status.innerText = "Grabando...";
-    };
+if (!SpeechRecognition) {
+  alert("Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.");
+} else {
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = "es-ES";
 
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+  recognition.onstart = () => {
+    isRecording = true;
+    document.getElementById("wave").style.display = "block";
+    document.getElementById("status").innerText = "Escuchando...";
+  };
 
-    mediaRecorder.onstop = async () => {
-      document.getElementById("wave").style.display = "none";
-      isRecording = false;
-      status.innerText = "Grabación finalizada";
+  recognition.onresult = (event) => {
+    let transcript = '';
+    for (let i = 0; i < event.results.length; i++) {
+      transcript += event.results[i][0].transcript;
+    }
+    document.getElementById("prompt").value = transcript;
+  };
 
-      // Convertir audio a blob
-      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+  recognition.onerror = (event) => {
+    document.getElementById("status").innerText = "Error: " + event.error;
+    document.getElementById("wave").style.display = "none";
+    isRecording = false;
+  };
 
-      // Transcripción con SpeechRecognition opcional (solo frontend)
-      if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
-        status.innerText += " | No hay SpeechRecognition disponible";
-        return;
-      }
-
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.lang = "es-ES";
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-
-      // Usar la grabación reproducida como fuente
-      const audioURL = URL.createObjectURL(blob);
-      const audio = new Audio(audioURL);
-      audio.play();
-
-      // Nota: SpeechRecognition no puede tomar un blob directamente, solo micrófono
-      // Por eso dejamos el usuario escribir o grabar en tiempo real con micrófono
-      // El texto final queda en el textarea manualmente
-    };
-
-    mediaRecorder.start();
-  } catch(err) {
-    status.innerText = "Permiso denegado o error: " + err.message;
-  }
+  recognition.onend = () => {
+    document.getElementById("status").innerText = "Micrófono detenido";
+    document.getElementById("wave").style.display = "none";
+    isRecording = false;
+  };
 }
 
+// Botón de micrófono
 document.getElementById("micBtn").addEventListener("click", () => {
   if (!isRecording) {
-    startRecording();
+    recognition.start();
   } else {
-    mediaRecorder.stop();
+    recognition.stop();
   }
 });
 
-document.getElementById("sendBtn").addEventListener("click", async () => {
-  const prompt = document.getElementById("prompt").value;
+// Botón de enviar a Gemini
+document.getElementById("sendBtn").addEventListener("click", () => {
+  const prompt = document.getElementById("prompt").value.trim();
   const responseBox = document.getElementById("response");
   const status = document.getElementById("status");
 
-  if (!prompt.trim()) {
-    status.innerText = "Escribe o graba algo antes de enviar.";
+  if (!prompt) {
+    status.innerText = "Escribe o habla algo antes de enviar.";
     return;
   }
 
   responseBox.innerText = "";
   status.innerText = "Gemini pensando...";
 
-  try {
-    // Llamada al backend de Apps Script
-    const url = 'YOUR_APPS_SCRIPT_EXEC_URL_HERE';
-    const resp = await fetch(url + '?prompt=' + encodeURIComponent(prompt));
-    const data = await resp.text();
-    responseBox.innerText = data;
-    status.innerText = "Respuesta recibida";
-  } catch (err) {
-    responseBox.innerText = "Error: " + err.message;
-    status.innerText = "Error en llamada";
-  }
+  // TU URL DE APPS SCRIPT AQUÍ
+  const url = 'https://script.google.com/macros/s/AKfycbzy7fZfx71C06Lo759ScFmyXiUAARBqjfNV8hSJBhu3FvdIKdlrBt61OhimiTr_LB3ylQ/exec?prompt=' + encodeURIComponent(prompt);
+
+  fetch(url)
+    .then(res => res.text())
+    .then(data => {
+      responseBox.innerText = data;
+      status.innerText = "Respuesta recibida";
+    })
+    .catch(err => {
+      responseBox.innerText = "Error: " + err.message;
+      status.innerText = "Error en llamada";
+    });
 });
 </script>
 
