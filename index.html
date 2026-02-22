@@ -10,8 +10,7 @@ button { margin-top:10px; padding:10px 20px; border-radius:8px; border:none; cur
 #micBtn { background:#ff4d4d; color:white; }
 #sendBtn { background:#4CAF50; color:white; }
 #wave { display:flex; margin-top:15px; height:40px; align-items:flex-end; gap:2px; }
-.bar { width:6px; background:#00ffcc; animation:wave 0.5s infinite ease-in-out; }
-@keyframes wave { 0%,100% { height:10px; } 50% { height:40px; } }
+.bar { width:6px; background:#00ffcc; }
 #status { margin-top:10px; color:#aaa; }
 #response { margin-top:20px; background:#222; padding:15px; border-radius:8px; white-space:pre-wrap; }
 </style>
@@ -19,10 +18,9 @@ button { margin-top:10px; padding:10px 20px; border-radius:8px; border:none; cur
 <body>
 
 <h2>🎤 Gemini Voice PRO</h2>
-
-<textarea id="prompt" placeholder="Habla o escribe aquí..."></textarea>
+<textarea id="prompt" placeholder="Tu transcripción aparecerá aquí..."></textarea>
 <br>
-<button id="micBtn">🎤 Activar voz</button>
+<button id="micBtn">🎤 Grabar voz</button>
 <button id="sendBtn">Enviar a Gemini</button>
 
 <div id="wave">
@@ -33,80 +31,75 @@ button { margin-top:10px; padding:10px 20px; border-radius:8px; border:none; cur
 <div id="response"></div>
 
 <script>
-let recognition, isRecording = false;
+let mediaRecorder, audioChunks = [], isRecording = false;
 const bars = document.querySelectorAll(".bar");
+let audioContext, analyser, dataArray;
 
-// Inicializar reconocimiento de voz
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (!SpeechRecognition) alert("Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.");
-
-else {
-  recognition = new SpeechRecognition();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = "es-ES";
-
-  recognition.onstart = () => {
-    isRecording = true;
-    document.getElementById("wave").style.display = "flex";
-    document.getElementById("status").innerText = "Escuchando...";
-    animateWave();
-  };
-
-  recognition.onresult = (event) => {
-    let transcript = "";
-    for (let i = 0; i < event.results.length; i++) transcript += event.results[i][0].transcript;
-    document.getElementById("prompt").value = transcript;
-  };
-
-  recognition.onerror = (event) => {
-    document.getElementById("status").innerText = "Error: " + event.error;
-    document.getElementById("wave").style.display = "none";
-    isRecording = false;
-  };
-
-  recognition.onend = () => {
-    document.getElementById("status").innerText = "Micrófono detenido";
-    document.getElementById("wave").style.display = "none";
-    isRecording = false;
-  };
+// Configurar ondas
+function setupAudioAnalyser(stream) {
+  audioContext = new AudioContext();
+  analyser = audioContext.createAnalyser();
+  const source = audioContext.createMediaStreamSource(stream);
+  source.connect(analyser);
+  analyser.fftSize = 32;
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+  animateWave();
 }
 
-// Animación de ondas
 function animateWave() {
   if (!isRecording) return;
-  bars.forEach(bar => {
-    const h = 10 + Math.random() * 30;
-    bar.style.height = h + "px";
+  analyser.getByteFrequencyData(dataArray);
+  bars.forEach((bar, i) => {
+    bar.style.height = (10 + dataArray[i]*0.5) + "px";
   });
   requestAnimationFrame(animateWave);
 }
 
-// Botón micrófono
-document.getElementById("micBtn").addEventListener("click", () => {
-  if (!isRecording) recognition.start(); else recognition.stop();
+// Botón grabar
+document.getElementById("micBtn").addEventListener("click", async () => {
+  if (!isRecording) {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    setupAudioAnalyser(stream);
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.start();
+    isRecording = true;
+    document.getElementById("status").innerText = "Grabando...";
+    document.getElementById("wave").style.display = "flex";
+  } else {
+    mediaRecorder.stop();
+    isRecording = false;
+    document.getElementById("status").innerText = "Grabación detenida";
+    document.getElementById("wave").style.display = "none";
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => {
+        window.base64Audio = reader.result.split(',')[1];
+        document.getElementById("prompt").value = "Audio listo para enviar";
+      }
+    }
+  }
 });
 
 // Botón enviar a Gemini
 document.getElementById("sendBtn").addEventListener("click", () => {
-  const prompt = document.getElementById("prompt").value.trim();
-  if (!prompt) { document.getElementById("status").innerText="Escribe o habla algo."; return; }
+  if (!window.base64Audio) { document.getElementById("status").innerText="Graba algo primero."; return; }
+  document.getElementById("status").innerText="Procesando audio...";
+  document.getElementById("response").innerText="";
 
-  document.getElementById("status").innerText = "Gemini pensando...";
-  document.getElementById("response").innerText = "";
-
-  const url = 'https://script.google.com/macros/s/AKfycbzy7fZfx71C06Lo759ScFmyXiUAARBqjfNV8hSJBhu3FvdIKdlrBt61OhimiTr_LB3ylQ/exec?prompt=' + encodeURIComponent(prompt);
-
-  fetch(url)
-    .then(r => r.text())
-    .then(res => {
+  google.script.run
+    .withSuccessHandler(res => {
       document.getElementById("response").innerText = res;
-      document.getElementById("status").innerText = "Respuesta recibida";
+      document.getElementById("status").innerText="Respuesta recibida";
     })
-    .catch(err => {
+    .withFailureHandler(err => {
       document.getElementById("response").innerText = "Error: " + err.message;
-      document.getElementById("status").innerText = "Error en llamada";
-    });
+      document.getElementById("status").innerText="Error";
+    })
+    .processAudio(window.base64Audio);
 });
 </script>
 
