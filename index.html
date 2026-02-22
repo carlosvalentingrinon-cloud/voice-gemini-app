@@ -1,48 +1,44 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Voice Gemini App</title>
-  <style>
-    body { font-family: Arial; background:#111; color:white; padding:20px; }
-    textarea { width:100%; height:120px; font-size:16px; padding:10px; border-radius:8px; border:none; resize:none; }
-    button { margin-top:10px; padding:10px 20px; border-radius:8px; border:none; cursor:pointer; font-size:16px; margin-right:10px; }
-    #micBtn { background:#ff4d4d; color:white; }
-    #sendBtn { background:#4CAF50; color:white; }
-    #wave { display:none; margin-top:15px; }
-    .bar { display:inline-block; width:4px; height:10px; margin:2px; background:#00ffcc; animation:wave 1s infinite ease-in-out; }
-    @keyframes wave { 0%{height:10px;} 50%{height:40px;} 100%{height:10px;} }
-    #status { margin-top:10px; color:#aaa; }
-    #response { margin-top:20px; background:#222; padding:15px; border-radius:8px; white-space:pre-wrap; }
-  </style>
+<meta charset="UTF-8">
+<title>Voice Gemini App</title>
+<style>
+body { font-family: Arial; background:#111; color:white; padding:20px; }
+textarea { width:100%; height:120px; font-size:16px; padding:10px; border-radius:8px; border:none; resize:none; }
+button { margin-top:10px; padding:10px 20px; border-radius:8px; border:none; cursor:pointer; font-size:16px; margin-right:10px; }
+#micBtn { background:#ff4d4d; color:white; }
+#sendBtn { background:#4CAF50; color:white; }
+#wave { display:none; margin-top:15px; }
+.bar { display:inline-block; width:4px; height:10px; margin:2px; background:#00ffcc; animation:wave 1s infinite ease-in-out; }
+@keyframes wave { 0%{height:10px;} 50%{height:40px;} 100%{height:10px;} }
+#status { margin-top:10px; color:#aaa; }
+#response { margin-top:20px; background:#222; padding:15px; border-radius:8px; white-space:pre-wrap; }
+</style>
 </head>
 <body>
 
 <h2>🎤 Gemini Voice App</h2>
-
 <textarea id="prompt" placeholder="Habla o escribe aquí..."></textarea>
 <br>
 <button id="micBtn">🎤 Activar voz</button>
 <button id="sendBtn">Enviar a Gemini</button>
 
 <div id="wave">
-  <div class="bar"></div><div class="bar"></div><div class="bar"></div>
-  <div class="bar"></div><div class="bar"></div>
+  <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
 </div>
 
 <div id="status"></div>
 <div id="response"></div>
 
 <script>
-let recognition;
-let isRecording = false;
+let recognition, isRecording = false;
 
-// Inicializamos SpeechRecognition
+// Inicializar reconocimiento de voz
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SpeechRecognition) alert("Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.");
 
-if (!SpeechRecognition) {
-  alert("Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.");
-} else {
+else {
   recognition = new SpeechRecognition();
   recognition.continuous = true;
   recognition.interimResults = true;
@@ -55,10 +51,8 @@ if (!SpeechRecognition) {
   };
 
   recognition.onresult = (event) => {
-    let transcript = '';
-    for (let i = 0; i < event.results.length; i++) {
-      transcript += event.results[i][0].transcript;
-    }
+    let transcript = "";
+    for (let i = 0; i < event.results.length; i++) transcript += event.results[i][0].transcript;
     document.getElementById("prompt").value = transcript;
   };
 
@@ -75,41 +69,30 @@ if (!SpeechRecognition) {
   };
 }
 
-// Botón de micrófono
+// Botón micrófono
 document.getElementById("micBtn").addEventListener("click", () => {
-  if (!isRecording) {
-    recognition.start();
-  } else {
-    recognition.stop();
-  }
+  if (!isRecording) recognition.start(); else recognition.stop();
 });
 
-// Botón de enviar a Gemini
+// Botón enviar a Gemini
 document.getElementById("sendBtn").addEventListener("click", () => {
   const prompt = document.getElementById("prompt").value.trim();
-  const responseBox = document.getElementById("response");
-  const status = document.getElementById("status");
+  if (!prompt) { document.getElementById("status").innerText="Escribe o habla algo."; return; }
 
-  if (!prompt) {
-    status.innerText = "Escribe o habla algo antes de enviar.";
-    return;
-  }
+  document.getElementById("status").innerText = "Gemini pensando...";
+  document.getElementById("response").innerText = "";
 
-  responseBox.innerText = "";
-  status.innerText = "Gemini pensando...";
-
-  // TU URL DE APPS SCRIPT AQUÍ
-  const url = 'https://script.google.com/macros/s/AKfycbzy7fZfx71C06Lo759ScFmyXiUAARBqjfNV8hSJBhu3FvdIKdlrBt61OhimiTr_LB3ylQ/exec?prompt=' + encodeURIComponent(prompt);
+  const url = 'TU_URL_EXEC_DE_APPS_SCRIPT' + '?prompt=' + encodeURIComponent(prompt);
 
   fetch(url)
-    .then(res => res.text())
-    .then(data => {
-      responseBox.innerText = data;
-      status.innerText = "Respuesta recibida";
+    .then(r => r.text())
+    .then(res => {
+      document.getElementById("response").innerText = res;
+      document.getElementById("status").innerText = "Respuesta recibida";
     })
     .catch(err => {
-      responseBox.innerText = "Error: " + err.message;
-      status.innerText = "Error en llamada";
+      document.getElementById("response").innerText = "Error: " + err.message;
+      document.getElementById("status").innerText = "Error en llamada";
     });
 });
 </script>
