@@ -85,25 +85,21 @@ document.getElementById("micBtn").addEventListener("click", async () => {
 });
 
 // Botón enviar a Gemini
-document.getElementById("sendBtn").addEventListener("click", async () => {
+document.getElementById("sendBtn").addEventListener("click", () => {
   if (!window.base64Audio) { document.getElementById("status").innerText="Graba algo primero."; return; }
   document.getElementById("status").innerText="Procesando audio...";
   document.getElementById("response").innerText="";
 
-  const url = 'https://script.google.com/macros/s/AKfycbzy7fZfx71C06Lo759ScFmyXiUAARBqjfNV8hSJBhu3FvdIKdlrBt61OhimiTr_LB3ylQ/exec';
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ audio: window.base64Audio })
-    });
-    const text = await res.text();
-    document.getElementById("response").innerText = text;
-    document.getElementById("status").innerText = "Respuesta recibida";
-  } catch(err) {
-    document.getElementById("response").innerText = "Error: " + err.message;
-    document.getElementById("status").innerText = "Error en llamada";
-  }
+  google.script.run
+    .withSuccessHandler(res => {
+      document.getElementById("response").innerText = res;
+      document.getElementById("status").innerText="Respuesta recibida";
+    })
+    .withFailureHandler(err => {
+      document.getElementById("response").innerText = "Error: " + err.message;
+      document.getElementById("status").innerText="Error";
+    })
+    .processAudio(window.base64Audio);
 });
 </script>
 
