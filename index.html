@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Voice Gemini App</title>
+  <style>
+    body { font-family: Arial; background:#111; color:white; padding:20px; }
+    textarea { width:100%; height:120px; font-size:16px; padding:10px; border-radius:8px; border:none; resize:none; }
+    button { margin-top:10px; padding:10px 20px; border-radius:8px; border:none; cursor:pointer; font-size:16px; margin-right:10px; }
+    #micBtn { background:#ff4d4d; color:white; }
+    #sendBtn { background:#4CAF50; color:white; }
+    #wave { display:none; margin-top:15px; }
+    .bar { display:inline-block; width:4px; height:10px; margin:2px; background:#00ffcc; animation:wave 1s infinite ease-in-out; }
+    @keyframes wave { 0%{height:10px;} 50%{height:40px;} 100%{height:10px;} }
+    #status { margin-top:10px; color:#aaa; }
+    #response { margin-top:20px; background:#222; padding:15px; border-radius:8px; white-space:pre-wrap; }
+  </style>
+</head>
+<body>
+
+<h2>🎤 Gemini Voice App</h2>
+
+<textarea id="prompt" placeholder="Habla o escribe aquí..."></textarea>
+<br>
+<button id="micBtn">🎤 Activar voz</button>
+<button id="sendBtn">Enviar a Gemini</button>
+
+<div id="wave">
+  <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+</div>
+<div id="status"></div>
+<div id="response"></div>
+
+<script>
+let mediaRecorder;
+let audioChunks = [];
+let isRecording = false;
+
+// Función para grabar audio
+async function startRecording() {
+  const status = document.getElementById("status");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.onstart = () => {
+      isRecording = true;
+      document.getElementById("wave").style.display = "block";
+      status.innerText = "Grabando...";
+    };
+
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+
+    mediaRecorder.onstop = async () => {
+      document.getElementById("wave").style.display = "none";
+      isRecording = false;
+      status.innerText = "Grabación finalizada";
+
+      // Convertir audio a blob
+      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+
+      // Transcripción con SpeechRecognition opcional (solo frontend)
+      if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
+        status.innerText += " | No hay SpeechRecognition disponible";
+        return;
+      }
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = "es-ES";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      // Usar la grabación reproducida como fuente
+      const audioURL = URL.createObjectURL(blob);
+      const audio = new Audio(audioURL);
+      audio.play();
+
+      // Nota: SpeechRecognition no puede tomar un blob directamente, solo micrófono
+      // Por eso dejamos el usuario escribir o grabar en tiempo real con micrófono
+      // El texto final queda en el textarea manualmente
+    };
+
+    mediaRecorder.start();
+  } catch(err) {
+    status.innerText = "Permiso denegado o error: " + err.message;
+  }
+}
+
+document.getElementById("micBtn").addEventListener("click", () => {
+  if (!isRecording) {
+    startRecording();
+  } else {
+    mediaRecorder.stop();
+  }
+});
+
+document.getElementById("sendBtn").addEventListener("click", async () => {
+  const prompt = document.getElementById("prompt").value;
+  const responseBox = document.getElementById("response");
+  const status = document.getElementById("status");
+
+  if (!prompt.trim()) {
+    status.innerText = "Escribe o graba algo antes de enviar.";
+    return;
+  }
+
+  responseBox.innerText = "";
+  status.innerText = "Gemini pensando...";
+
+  try {
+    // Llamada al backend de Apps Script
+    const url = 'YOUR_APPS_SCRIPT_EXEC_URL_HERE';
+    const resp = await fetch(url + '?prompt=' + encodeURIComponent(prompt));
+    const data = await resp.text();
+    responseBox.innerText = data;
+    status.innerText = "Respuesta recibida";
+  } catch (err) {
+    responseBox.innerText = "Error: " + err.message;
+    status.innerText = "Error en llamada";
+  }
+});
+</script>
+
+</body>
+</html>
